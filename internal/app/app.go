@@ -18,6 +18,7 @@ type Config struct {
 	ModPath      string
 	OutputFormat string
 	Packages     string
+	PkgSep       string
 }
 
 func (c *Config) Reset() {
@@ -28,15 +29,18 @@ func (c *Config) Reset() {
 
 	c.ModPath = wd
 	c.OutputFormat = Yaml
+	c.PkgSep = "/"
 }
 
 func (c *Config) Flags(flags *flag.FlagSet) {
 	flags.StringVar(&c.ModPath, "modPath", c.ModPath, "the modules path to use")
 	flags.StringVar(&c.OutputFormat, "format", c.OutputFormat, "either yaml|json")
 	flags.StringVar(&c.Packages, "packages", c.Packages, "if not empty, only scan the listed packages separated by ;")
+	flags.StringVar(&c.PkgSep, "pkgSep", c.PkgSep, "sets the path separator between packages. Default is / which is not json-pointer friendly")
 }
 
 func Apply(cfg Config) ([]byte, error) {
+
 	comments := map[string]string{}
 	pkgs := strings.Split(cfg.Packages, ";")
 	if len(pkgs) == 1 && pkgs[0] == "" {
@@ -49,7 +53,8 @@ func Apply(cfg Config) ([]byte, error) {
 	}
 
 	for _, doc := range docs {
-		comments[doc.Qualifier] = doc.Doc
+		qualifier := strings.ReplaceAll(doc.Qualifier, "/", cfg.PkgSep)
+		comments[qualifier] = doc.Doc
 	}
 
 	switch cfg.OutputFormat {
