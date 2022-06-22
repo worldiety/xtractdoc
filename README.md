@@ -11,7 +11,7 @@ in other places, like e.g. using that in a _$ref_ description in an OpenAPI spec
 
 ```bash
 go install github.com/worldiety/xtractdoc/cmd/xtractdoc@latest
-xtractdoc -modPath=/my/go/module -format=yaml -packages=github.com/worldiety/xtractdoc/testdata > godoc.yaml
+xtractdoc -modPath=/my/go/module -format=yaml -packages=github.com/worldiety/xtractdoc/testdata;github.com/worldiety/xtractdoc/testdata/v1 > godoc.yaml
 ```
 
 Example output:
