@@ -118,6 +118,7 @@ const (
 	StructMethod    Type = "receiver"
 	InterfaceMethod Type = "method"
 	Constructor     Type = "constructor"
+	EnumConst       Type = "enumval"
 )
 
 type Comment struct {
@@ -226,6 +227,21 @@ func Parse(dir string, onlyImports ...string) ([]Comment, error) {
 						Doc:       f.Doc,
 					})
 				}
+
+				for _, c := range t.Consts {
+					for _, spec := range c.Decl.Specs {
+						if vspec, ok := spec.(*ast.ValueSpec); ok {
+							for _, name := range vspec.Names {
+								typeKey := importPath + "." + name.Name
+								res = append(res, Comment{
+									Qualifier: typeKey,
+									Type:      EnumConst,
+									Doc:       vspec.Doc.Text(),
+								})
+							}
+						}
+					}
+				}
 			}
 
 			for _, f := range pkg.Funcs {
@@ -249,7 +265,6 @@ func Parse(dir string, onlyImports ...string) ([]Comment, error) {
 							Doc:       doc,
 						})
 					}
-
 				}
 			}
 
