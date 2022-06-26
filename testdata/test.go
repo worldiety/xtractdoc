@@ -1,8 +1,17 @@
 package testdata
 
+import other "github.com/worldiety/xtractdoc/testdata/v1"
+
+// MyEnum is like Go does it.
+type MyEnum string
+
+// Group documentation on constants.
 const (
 	// AConstant here.
-	AConstant = "abc"
+	AConstant MyEnum = "abc"
+
+	// BConstant here.
+	BConstant MyEnum = "bcd"
 )
 
 // An Entity to store.
@@ -11,7 +20,16 @@ type Entity struct {
 	Name string
 
 	// A Description about the thing.
-	Description string
+	Description map[string]int
+
+	// GenericOne is recursive.
+	GenericOne X[X[chan<- bool]]
+
+	hidden string
+}
+
+type X[T any] struct {
+	V T
 }
 
 // String returns a human-
@@ -31,6 +49,12 @@ type Behavior interface {
 // Hello to the world.
 var Hello = "world"
 
+// grouped consts
+const (
+	// HelloConst as const
+	HelloConst = "hello world"
+)
+
 // The BestFunc is really a static package level function.
 func BestFunc() {
 
@@ -39,4 +63,15 @@ func BestFunc() {
 // NewEntity is a conventional constructor.
 func NewEntity() Entity {
 	return Entity{}
+}
+
+type MyFace interface {
+	A() (other.DifferentV1, error)
+}
+
+type MyFaceImpl struct {
+}
+
+func (MyFaceImpl) A() (other.DifferentV1, error) {
+	return other.DifferentV1{}, nil
 }

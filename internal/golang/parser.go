@@ -169,7 +169,6 @@ func Parse(dir string, onlyImports ...string) ([]Comment, error) {
 
 		for _, astPkg := range pkgs {
 			pkg := doc.New(astPkg, importPath, doc.AllDecls)
-
 			if pkg.Doc != "" {
 				res = append(res, Comment{
 					Qualifier: importPath,
