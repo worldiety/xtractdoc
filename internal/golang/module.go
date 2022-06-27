@@ -318,6 +318,43 @@ func ast2str(n ast.Node) string {
 		return "struct"
 	case *ast.Ellipsis:
 		return "..."
+	case *ast.FuncType:
+		s := "func"
+		if t.TypeParams != nil && len(t.TypeParams.List) > 0 {
+			s += "["
+			s += ast2str(t.TypeParams)
+			s += "]"
+		}
+		s += "("
+		if t.Params != nil {
+			s += ast2str(t.Params)
+		}
+		s += ")"
+		if t.Results != nil {
+			switch len(t.Results.List) {
+			case 0:
+			case 1:
+				s += " "
+				s += ast2str(t.Results)
+			default:
+				s += " ("
+				s += ast2str(t.Results)
+				s += ")"
+			}
+		}
+		return s
+	case *ast.FieldList:
+		s := ""
+		for _, field := range t.List {
+			for _, name := range field.Names {
+				s += name.Name + " ,"
+			}
+			s = strings.TrimSuffix(s, ",")
+			s += ast2str(field.Type)
+		}
+
+		s = strings.TrimSuffix(s, " ,")
+		return s
 	default:
 		panic(fmt.Errorf("implement me %T", t))
 	}
