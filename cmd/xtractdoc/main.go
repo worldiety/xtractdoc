@@ -12,7 +12,7 @@ func main() {
 	cfg.Flags(flag.CommandLine)
 	flag.Parse()
 
-	buf, err := app.Apply2(cfg)
+	buf, err := app.Apply(cfg)
 	if err != nil {
 		panic(err)
 	}

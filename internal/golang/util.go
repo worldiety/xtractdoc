@@ -1,4 +1,4 @@
-package golang2
+package golang
 
 import (
 	"fmt"

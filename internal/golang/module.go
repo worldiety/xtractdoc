@@ -1,4 +1,4 @@
-package golang2
+package golang
 
 import (
 	"fmt"
@@ -299,6 +299,8 @@ func ast2str(n ast.Node) string {
 		return "interface"
 	case *ast.StructType:
 		return "struct"
+	case *ast.Ellipsis:
+		return "..."
 	default:
 		panic(fmt.Errorf("implement me %T", t))
 	}
