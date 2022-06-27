@@ -66,12 +66,14 @@ func NewEntity() Entity {
 }
 
 type MyFace interface {
+	// A is virtual method.
 	A() (other.DifferentV1, error)
 }
 
 type MyFaceImpl struct {
 }
 
+// A is a concrete method.
 func (MyFaceImpl) A() (other.DifferentV1, error) {
 	return other.DifferentV1{}, nil
 }

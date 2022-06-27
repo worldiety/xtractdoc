@@ -62,7 +62,7 @@ func newPackage(pkg Package) *api.Package {
 				continue
 			}
 
-			p.Functions[f.Name] = newFunc(f)
+			p.Functions[f.Name] = newFunc(f.Doc, f.Decl.Type)
 		}
 
 	}
@@ -95,19 +95,19 @@ func newPackage(pkg Package) *api.Package {
 	return p
 }
 
-func newFunc(fn *doc.Func) *api.Func {
+func newFunc(outerDoc string, fn *ast.FuncType) *api.Func {
 	f := &api.Func{
-		Doc: fn.Doc,
+		Doc: outerDoc,
 	}
 
-	inArgs := fn.Decl.Type.Params.List
+	inArgs := fn.Params.List
 	if len(inArgs) > 0 {
 		f.Params = map[string]*api.Parameter{}
 		insertParams(f.Params, inArgs, api.StereotypeParameter, api.StereotypeParameterIn)
 	}
 
-	if fn.Decl.Type.Results != nil {
-		outArgs := fn.Decl.Type.Results.List
+	if fn.Results != nil {
+		outArgs := fn.Results.List
 		if len(outArgs) > 0 {
 			f.Results = map[string]*api.Parameter{}
 			insertParams(f.Results, outArgs, api.StereotypeParameter, api.StereotypeParameterOut, api.StereotypeParameterResult)
@@ -171,6 +171,23 @@ func newType(typeDef *doc.Type) *api.Type {
 						}
 					}
 				}
+			case *ast.InterfaceType:
+				n.Methods = map[string]*api.Func{}
+				for _, f := range t.Methods.List {
+					switch m := f.Type.(type) {
+					case *ast.FuncType:
+						nf := newFunc(f.Doc.Text(), m)
+						nf.Stereotypes = append(nf.Stereotypes, api.StereotypeMethod)
+						for _, name := range f.Names {
+							if !name.IsExported() {
+								continue
+							}
+							n.Methods[name.Name] = nf
+						}
+
+					}
+
+				}
 			case *ast.Ident:
 				n.Stereotypes = append(n.Stereotypes, api.Stereotype(t.Name))
 			}
@@ -194,7 +211,7 @@ func newType(typeDef *doc.Type) *api.Type {
 	if len(typeDef.Funcs) > 0 {
 		n.Factories = map[string]*api.Func{}
 		for _, f := range typeDef.Funcs {
-			nf := newFunc(f)
+			nf := newFunc(f.Doc, f.Decl.Type)
 			nf.Stereotypes = append(nf.Stereotypes, api.StereotypeConstructor)
 			n.Factories[f.Name] = nf
 		}
@@ -204,7 +221,7 @@ func newType(typeDef *doc.Type) *api.Type {
 	if len(typeDef.Methods) > 0 {
 		n.Methods = map[string]*api.Func{}
 		for _, f := range typeDef.Methods {
-			nf := newFunc(f)
+			nf := newFunc(f.Doc, f.Decl.Type)
 			nf.Stereotypes = append(nf.Stereotypes, api.StereotypeMethod)
 			n.Methods[f.Name] = nf
 		}
