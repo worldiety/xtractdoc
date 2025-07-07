@@ -1,33 +1,65 @@
 package golang
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/worldiety/xtractdoc/domain/api"
 	"go/ast"
 	"go/doc"
+	"go/format"
+	"go/printer"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 )
 
-func newModule(dir string, modname string, pkgs map[string]Package) (*api.Module, error) {
+func newModule(dir string, modname string, pkgs map[string]Package, fset *token.FileSet) (*api.Module, error) {
 	m := &api.Module{
-		Module: modname,
-		Readme: tryLoadReadme(dir),
+		Module:   modname,
+		Readme:   tryLoadReadme(dir),
+		Packages: make(map[api.ImportPath]*api.Package),
 	}
 
-	if len(pkgs) > 0 {
-		m.Packages = map[api.ImportPath]*api.Package{}
-		for _, p := range pkgs {
-			np := newPackage(p)
-			np.Readme = tryLoadReadme(p.dir)
-			m.Packages[p.dpkg.ImportPath] = np
+	for _, p := range pkgs {
+		var exampleFuncs map[string][]*ast.FuncDecl
+		var exampleImports map[string][][]*ast.ImportSpec
 
+		// find all associated _test-Package
+		testPkg, ok := pkgs[p.pkg.Name+"_test"]
+		if ok {
+			exampleFuncs = make(map[string][]*ast.FuncDecl)
+			exampleImports = make(map[string][][]*ast.ImportSpec)
+
+			for _, f := range testPkg.pkg.Files {
+				for _, decl := range f.Decls {
+					fn, ok := decl.(*ast.FuncDecl)
+					if !ok || !strings.HasPrefix(fn.Name.Name, "Example") {
+						continue
+					}
+
+					base := exampleTargetFunc(fn.Name.Name)
+					exampleFuncs[base] = append(exampleFuncs[base], fn)
+					exampleImports[base] = append(exampleImports[base], f.Imports)
+				}
+			}
 		}
+
+		np := newPackage(p, fset, exampleFuncs, exampleImports)
+		np.Readme = tryLoadReadme(p.dir)
+		m.Packages[p.dpkg.ImportPath] = np
 	}
 
 	return m, nil
+}
+
+func exampleTargetFunc(name string) string {
+	s := strings.TrimPrefix(name, "Example")
+	if i := strings.Index(s, "_"); i != -1 {
+		return s[:i]
+	}
+	return s
 }
 
 func tryLoadReadme(dir string) string {
@@ -44,7 +76,7 @@ func tryLoadReadme(dir string) string {
 	return ""
 }
 
-func newPackage(pkg Package) *api.Package {
+func newPackage(pkg Package, fset *token.FileSet, exampleFuncs map[string][]*ast.FuncDecl, exampleImports map[string][][]*ast.ImportSpec) *api.Package {
 	p := &api.Package{
 		Doc:     pkg.dpkg.Doc,
 		Name:    pkg.dpkg.Name,
@@ -62,7 +94,7 @@ func newPackage(pkg Package) *api.Package {
 				continue
 			}
 
-			p.Functions[f.Name] = newFunc(f.Doc, f.Decl.Type)
+			p.Functions[f.Name] = newFuncFromDoc(f, fset, exampleFuncs, exampleImports)
 		}
 
 	}
@@ -70,7 +102,7 @@ func newPackage(pkg Package) *api.Package {
 	if len(pkg.dpkg.Types) > 0 {
 		p.Types = map[string]*api.Type{}
 		for _, t := range pkg.dpkg.Types {
-			p.Types[t.Name] = newType(t)
+			p.Types[t.Name] = newType(t, fset, exampleFuncs, exampleImports)
 		}
 	}
 
@@ -95,15 +127,79 @@ func newPackage(pkg Package) *api.Package {
 	return p
 }
 
-func newFunc(outerDoc string, fn *ast.FuncType) *api.Func {
+func newFuncFromDoc(df *doc.Func, fset *token.FileSet, testExamples map[string][]*ast.FuncDecl, testImports map[string][][]*ast.ImportSpec) *api.Func {
 	f := &api.Func{
-		Doc: outerDoc,
+		Doc: df.Doc,
 	}
 
-	inArgs := fn.Params.List
+	inArgs := df.Decl.Type.Params.List
 	if len(inArgs) > 0 {
 		f.Params = map[string]*api.Parameter{}
 		insertParams(f.Params, inArgs, api.StereotypeParameter, api.StereotypeParameterIn)
+	}
+
+	if df.Decl.Type.Results != nil {
+		outArgs := df.Decl.Type.Results.List
+		if len(outArgs) > 0 {
+			f.Results = map[string]*api.Parameter{}
+			insertParams(f.Results, outArgs, api.StereotypeParameter, api.StereotypeParameterOut, api.StereotypeParameterResult)
+		}
+	}
+
+	for _, ex := range df.Examples {
+		f.Examples = append(f.Examples, api.Example{
+			Name: ex.Name,
+			Doc:  ex.Doc,
+			Code: exampleCodeToString(fset, ex.Code),
+		})
+	}
+
+	if exFns, ok := testExamples[df.Name]; ok {
+		importGroups := testImports[df.Name]
+		for i, exFn := range exFns {
+			var imports []*ast.ImportSpec
+			if i < len(importGroups) {
+				imports = importGroups[i]
+			}
+			example, err := generateExecutableFromExample(exFn, imports, fset)
+			if err == nil {
+				f.ExecutableExamples = append(f.ExecutableExamples, example)
+			}
+		}
+	}
+
+	return f
+}
+
+func exampleCodeToString(fset *token.FileSet, node ast.Node) string {
+	if node == nil {
+		return ""
+	}
+
+	var buf bytes.Buffer
+	err := printer.Fprint(&buf, fset, node)
+	if err != nil {
+		return ""
+	}
+
+	formatted, err := format.Source(buf.Bytes())
+	if err == nil {
+		return string(formatted)
+	}
+	return buf.String()
+}
+
+func newFuncFromAst(doc string, fn *ast.FuncType) *api.Func {
+	f := &api.Func{
+		Doc: doc,
+	}
+
+	if fn.Params != nil {
+		inArgs := fn.Params.List
+		if len(inArgs) > 0 {
+			f.Params = map[string]*api.Parameter{}
+			insertParams(f.Params, inArgs, api.StereotypeParameter, api.StereotypeParameterIn)
+		}
 	}
 
 	if fn.Results != nil {
@@ -146,7 +242,7 @@ func insertParams(dst map[string]*api.Parameter, src []*ast.Field, st ...api.Ste
 	}
 }
 
-func newType(typeDef *doc.Type) *api.Type {
+func newType(typeDef *doc.Type, fset *token.FileSet, exampleFuncs map[string][]*ast.FuncDecl, exampleImports map[string][][]*ast.ImportSpec) *api.Type {
 	n := &api.Type{
 		Doc: typeDef.Doc,
 	}
@@ -176,7 +272,7 @@ func newType(typeDef *doc.Type) *api.Type {
 				for _, f := range t.Methods.List {
 					switch m := f.Type.(type) {
 					case *ast.FuncType:
-						nf := newFunc(f.Doc.Text(), m)
+						nf := newFuncFromAst(f.Doc.Text(), m)
 						nf.Stereotypes = append(nf.Stereotypes, api.StereotypeMethod)
 						for _, name := range f.Names {
 							if !name.IsExported() {
@@ -211,8 +307,8 @@ func newType(typeDef *doc.Type) *api.Type {
 	if len(typeDef.Funcs) > 0 {
 		n.Factories = map[string]*api.Func{}
 		for _, f := range typeDef.Funcs {
-			nf := newFunc(f.Doc, f.Decl.Type)
-			nf.Stereotypes = append(nf.Stereotypes, api.StereotypeConstructor)
+			nf := newFuncFromDoc(f, fset, exampleFuncs, exampleImports)
+			n.Factories[f.Name] = nf
 			n.Factories[f.Name] = nf
 		}
 
@@ -221,7 +317,7 @@ func newType(typeDef *doc.Type) *api.Type {
 	if len(typeDef.Methods) > 0 {
 		n.Methods = map[string]*api.Func{}
 		for _, f := range typeDef.Methods {
-			nf := newFunc(f.Doc, f.Decl.Type)
+			nf := newFuncFromDoc(f, fset, exampleFuncs, exampleImports)
 			nf.Stereotypes = append(nf.Stereotypes, api.StereotypeMethod)
 			n.Methods[f.Name] = nf
 		}
@@ -358,4 +454,99 @@ func ast2str(n ast.Node) string {
 	default:
 		panic(fmt.Errorf("implement me %T", t))
 	}
+}
+
+// generateExecutableFromExample generates executable code from an example with a main package,
+// all required imports and the code wrapped into a main function.
+//
+// e.g.
+//
+//	ExampleSayHello() {
+//	 fmt.Println("Hello")
+//	}
+//
+// result:
+//
+// package main
+//
+// import "fmt"
+//
+//	func main() {
+//	  fmt.Println("Hello")
+//	}
+func generateExecutableFromExample(fn *ast.FuncDecl, imports []*ast.ImportSpec, fset *token.FileSet) (api.ExecutableExample, error) {
+	filteredImports := filterUsedImports(fn, imports)
+
+	mainFunc := &ast.FuncDecl{
+		Name: ast.NewIdent("main"),
+		Type: &ast.FuncType{
+			Params: &ast.FieldList{},
+		},
+		Body: fn.Body,
+	}
+
+	importDecl := &ast.GenDecl{
+		Tok:   token.IMPORT,
+		Specs: make([]ast.Spec, len(filteredImports)),
+	}
+
+	for i, imp := range filteredImports {
+		importDecl.Specs[i] = imp
+	}
+
+	file := &ast.File{
+		Name:  mainFunc.Name,
+		Decls: []ast.Decl{importDecl, mainFunc},
+	}
+
+	var buf bytes.Buffer
+
+	err := format.Node(&buf, fset, file)
+	if err != nil {
+		return api.ExecutableExample{}, err
+	}
+
+	return api.ExecutableExample{
+		Code: buf.String(),
+	}, nil
+}
+
+func filterUsedImports(fn *ast.FuncDecl, imports []*ast.ImportSpec) []*ast.ImportSpec {
+	// 1. find all SelectorExpr like fmt.Println, strings.NewReader
+	usedIdents := map[string]bool{}
+
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		sel, ok := n.(*ast.SelectorExpr)
+		if ok {
+			if ident, ok := sel.X.(*ast.Ident); ok {
+				usedIdents[ident.Name] = true
+			}
+		}
+		return true
+	})
+
+	// 2. filter all imports that are included in usedIdents
+	var filtered []*ast.ImportSpec
+
+	for _, imp := range imports {
+		var name string
+
+		if imp.Name != nil {
+			name = imp.Name.Name // alias: z. B. "io"
+		} else {
+			// fallback: extract path → z. B. "fmt"
+			path, err := strconv.Unquote(imp.Path.Value)
+			if err != nil {
+				continue
+			}
+			parts := strings.Split(path, "/")
+			name = parts[len(parts)-1]
+		}
+
+		if usedIdents[name] {
+			filtered = append(filtered, imp)
+		}
+	}
+
+	return filtered
 }
