@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"github.com/worldiety/xtractdoc/internal/app"
+	"github.com/worldiety/xtractdoc/domain/app"
 	"os"
 )
 

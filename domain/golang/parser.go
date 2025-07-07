@@ -2,7 +2,7 @@ package golang
 
 import (
 	"fmt"
-	"github.com/worldiety/xtractdoc/internal/api"
+	"github.com/worldiety/xtractdoc/domain/api"
 	"go/ast"
 	"go/doc"
 	"go/parser"
