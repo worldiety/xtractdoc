@@ -54,10 +54,25 @@ type Type struct {
 }
 
 type Func struct {
-	Doc         string                `json:"doc,omitempty" yaml:"doc,omitempty"`
-	Stereotypes []Stereotype          `json:"stereotypes,omitempty" yaml:"stereotypes,omitempty"`
-	Params      map[string]*Parameter `json:"params,omitempty" yaml:"params,omitempty"`
-	Results     map[string]*Parameter `json:"results,omitempty" yaml:"results,omitempty"`
+	Doc                string                `json:"doc,omitempty" yaml:"doc,omitempty"`
+	Stereotypes        []Stereotype          `json:"stereotypes,omitempty" yaml:"stereotypes,omitempty"`
+	Params             map[string]*Parameter `json:"params,omitempty" yaml:"params,omitempty"`
+	Results            map[string]*Parameter `json:"results,omitempty" yaml:"results,omitempty"`
+	Examples           []Example             `json:"examples,omitempty" yaml:"examples,omitempty"`
+	ExecutableExamples []ExecutableExample   `json:"executable_examples,omitempty" yaml:"executable_examples,omitempty"`
+}
+
+type Example struct {
+	Name   string `json:"name,omitempty" yaml:"name,omitempty"`
+	Doc    string `json:"doc,omitempty" yaml:"doc,omitempty"`
+	Code   string `json:"code,omitempty" yaml:"code,omitempty"`
+	Output string `json:"output,omitempty" yaml:"output,omitempty"`
+}
+
+type ExecutableExample struct {
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Doc  string `json:"doc,omitempty" yaml:"doc,omitempty"`
+	Code string `json:"code,omitempty" yaml:"code,omitempty"`
 }
 
 type Field struct {

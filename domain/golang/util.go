@@ -13,7 +13,7 @@ import (
 func PkgDirs(root string) ([]string, error) {
 	var res []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if d.IsDir() && strings.HasPrefix(d.Name(), ".") {
+		if d.IsDir() && strings.HasPrefix(d.Name(), ".") && !strings.HasPrefix(d.Name(), "..") {
 			return filepath.SkipDir
 		}
 

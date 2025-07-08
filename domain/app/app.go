@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/worldiety/xtractdoc/internal/api"
-	"github.com/worldiety/xtractdoc/internal/golang"
+	"github.com/worldiety/xtractdoc/domain/api"
+	"github.com/worldiety/xtractdoc/domain/golang"
 	"gopkg.in/yaml.v3"
 	"strings"
 )
