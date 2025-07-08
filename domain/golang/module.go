@@ -117,21 +117,10 @@ func newPackage(
 		p.Stereotypes = append(p.Stereotypes, api.StereotypeExecutable)
 	}
 
-	if len(pkg.dpkg.Funcs) > 0 {
-		p.Functions = processFuncs(pkg.dpkg.Funcs, fset, exampleFuncs, exampleImports)
-	}
-
-	if len(pkg.dpkg.Types) > 0 {
-		p.Types = processTypes(pkg.dpkg.Types, fset, exampleFuncs, exampleImports)
-	}
-
-	if len(pkg.dpkg.Consts) > 0 {
-		p.Consts = processConsts(pkg.dpkg.Consts)
-	}
-
-	if len(pkg.dpkg.Vars) > 0 {
-		p.Vars = processVars(pkg.dpkg.Vars)
-	}
+	p.Functions = processFuncs(pkg.dpkg.Funcs, fset, exampleFuncs, exampleImports)
+	p.Types = processTypes(pkg.dpkg.Types, fset, exampleFuncs, exampleImports)
+	p.Consts = processConsts(pkg.dpkg.Consts)
+	p.Vars = processVars(pkg.dpkg.Vars)
 
 	return p
 }

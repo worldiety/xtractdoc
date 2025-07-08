@@ -56,13 +56,6 @@ func Parse(dir string, onlyImports ...string) (*api.Module, error) {
 			}
 		}
 
-		//var realPkgName string
-		//for pkgName := range pkgs {
-		//	if !strings.HasSuffix(pkgName, "_test") {
-		//		realPkgName = pkgName
-		//		break
-		//	}
-		//}
 		mainPkg, testPkg := splitTestPackages(pkgs)
 
 		if mainPkg != nil {
@@ -72,35 +65,6 @@ func Parse(dir string, onlyImports ...string) (*api.Module, error) {
 		if testPkg != nil {
 			module[testPkg.Name] = buildPackageEntry(testPkg, "", dir, fset)
 		}
-
-		//for pkgName, astPkg := range pkgs {
-		//	var files []*ast.File
-		//	for _, f := range astPkg.Files {
-		//		files = append(files, f)
-		//	}
-		//
-		//	if pkgName == realPkgName {
-		//		dpkg, err := doc.NewFromFiles(fset, files, importPath, doc.AllDecls|doc.AllMethods)
-		//		if err != nil {
-		//			panic(fmt.Errorf("cannot parse %s: %w", importPath, err))
-		//		}
-		//		module[pkgName] = Package{
-		//			pkg:  astPkg,
-		//			dpkg: dpkg,
-		//			dir:  dir,
-		//		}
-		//	} else if strings.HasSuffix(pkgName, "_test") {
-		//		dpkg, err := doc.NewFromFiles(fset, files, "", doc.AllDecls|doc.AllMethods)
-		//		if err != nil {
-		//			panic(fmt.Errorf("cannot parse %s: %w", importPath, err))
-		//		}
-		//		module[pkgName] = Package{
-		//			pkg:  astPkg,
-		//			dpkg: dpkg,
-		//			dir:  dir,
-		//		}
-		//	}
-		//}
 	}
 
 	return newModule(modRoot, modName, module, fset)
