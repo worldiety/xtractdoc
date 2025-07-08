@@ -70,6 +70,8 @@ type Example struct {
 }
 
 type ExecutableExample struct {
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Doc  string `json:"doc,omitempty" yaml:"doc,omitempty"`
 	Code string `json:"code,omitempty" yaml:"code,omitempty"`
 }
 
